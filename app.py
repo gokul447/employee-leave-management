@@ -6,8 +6,13 @@ from urllib.parse import urlparse
 app = Flask(__name__)
 app.secret_key = "secretkey"
 
-# Database connection using Render DATABASE_URL
+# -------------------------------
+# Database Connection
+# -------------------------------
 DATABASE_URL = os.environ.get("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL not set")
 
 url = urlparse(DATABASE_URL)
 
@@ -19,18 +24,22 @@ conn = psycopg2.connect(
     port=url.port
 )
 
+# -------------------------------
 # Home
+# -------------------------------
 @app.route('/')
 def index():
     return render_template('index.html')
 
+# -------------------------------
 # Register
+# -------------------------------
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        name = request.form['name']
-        email = request.form['email']
-        password = request.form['password']
+        name = request.form.get('name')
+        email = request.form.get('email')
+        password = request.form.get('password')
 
         cur = conn.cursor()
         cur.execute(
@@ -40,14 +49,17 @@ def register():
         conn.commit()
         cur.close()
         return redirect('/login')
+
     return render_template('register.html')
 
+# -------------------------------
 # Login
+# -------------------------------
 @app.route('/login', methods=['GET','POST'])
 def login():
     if request.method == 'POST':
-        email = request.form['email']
-        password = request.form['password']
+        email = request.form.get('email')
+        password = request.form.get('password')
 
         cur = conn.cursor()
         cur.execute(
@@ -61,37 +73,51 @@ def login():
             session['user_id'] = user[0]
             session['role'] = user[4]
             return redirect('/dashboard')
+
     return render_template('login.html')
 
+# -------------------------------
 # Dashboard
+# -------------------------------
 @app.route('/dashboard')
 def dashboard():
+    user_id = session.get('user_id')
+
+    if not user_id:
+        return redirect('/login')
+
     cur = conn.cursor()
     cur.execute(
         "SELECT * FROM leaves WHERE user_id=%s",
-        (session.get('user_id'),)
+        (user_id,)
     )
     leaves = cur.fetchall()
     cur.close()
+
     return render_template('dashboard.html', leaves=leaves)
 
+# -------------------------------
 # Apply Leave
+# -------------------------------
 @app.route('/apply', methods=['GET','POST'])
 def apply():
+    user_id = session.get('user_id')
+
+    if not user_id:
+        return redirect('/login')
+
     if request.method == 'POST':
-        from_date = request.form['from_date']
-        to_date = request.form['to_date']
-        reason = request.form['reason']
+        from_date = request.form.get('from_date')
+        to_date = request.form.get('to_date')
+        reason = request.form.get('reason')
 
         cur = conn.cursor()
         cur.execute(
             "INSERT INTO leaves(user_id,from_date,to_date,reason) VALUES(%s,%s,%s,%s)",
-            (session.get('user_id'), from_date, to_date, reason)
+            (user_id, from_date, to_date, reason)
         )
         conn.commit()
         cur.close()
         return redirect('/dashboard')
-    return render_template('apply_leave.html')
 
-if __name__ == '__main__':
-    app.run(debug=True)
+    return render_template('apply_leave.html')
