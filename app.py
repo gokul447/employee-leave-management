@@ -1,16 +1,23 @@
 from flask import Flask, render_template, request, redirect, session
-from flask_mysqldb import MySQL
-import config
+import os
+import psycopg2
+from urllib.parse import urlparse
 
 app = Flask(__name__)
 app.secret_key = "secretkey"
 
-app.config['MYSQL_HOST'] = config.MYSQL_HOST
-app.config['MYSQL_USER'] = config.MYSQL_USER
-app.config['MYSQL_PASSWORD'] = config.MYSQL_PASSWORD
-app.config['MYSQL_DB'] = config.MYSQL_DB
+# Database connection using Render DATABASE_URL
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
-mysql = MySQL(app)
+url = urlparse(DATABASE_URL)
+
+conn = psycopg2.connect(
+    database=url.path[1:],
+    user=url.username,
+    password=url.password,
+    host=url.hostname,
+    port=url.port
+)
 
 # Home
 @app.route('/')
@@ -25,10 +32,12 @@ def register():
         email = request.form['email']
         password = request.form['password']
 
-        cur = mysql.connection.cursor()
-        cur.execute("INSERT INTO users(name,email,password) VALUES(%s,%s,%s)",
-                    (name,email,password))
-        mysql.connection.commit()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO users(name,email,password) VALUES(%s,%s,%s)",
+            (name, email, password)
+        )
+        conn.commit()
         cur.close()
         return redirect('/login')
     return render_template('register.html')
@@ -40,28 +49,31 @@ def login():
         email = request.form['email']
         password = request.form['password']
 
-        cur = mysql.connection.cursor()
-        cur.execute("SELECT * FROM users WHERE email=%s AND password=%s",
-                    (email,password))
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT * FROM users WHERE email=%s AND password=%s",
+            (email, password)
+        )
         user = cur.fetchone()
         cur.close()
 
         if user:
             session['user_id'] = user[0]
             session['role'] = user[4]
-            if user[4] == 'admin':
-                return redirect('/admin')
             return redirect('/dashboard')
     return render_template('login.html')
 
-# Employee Dashboard
+# Dashboard
 @app.route('/dashboard')
 def dashboard():
-    cur = mysql.connection.cursor()
-    cur.execute("SELECT * FROM leaves WHERE user_id=%s",(session['user_id'],))
-    data = cur.fetchall()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT * FROM leaves WHERE user_id=%s",
+        (session.get('user_id'),)
+    )
+    leaves = cur.fetchall()
     cur.close()
-    return render_template('dashboard.html', leaves=data)
+    return render_template('dashboard.html', leaves=leaves)
 
 # Apply Leave
 @app.route('/apply', methods=['GET','POST'])
@@ -71,31 +83,15 @@ def apply():
         to_date = request.form['to_date']
         reason = request.form['reason']
 
-        cur = mysql.connection.cursor()
-        cur.execute("INSERT INTO leaves(user_id,from_date,to_date,reason) VALUES(%s,%s,%s,%s)",
-                    (session['user_id'],from_date,to_date,reason))
-        mysql.connection.commit()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO leaves(user_id,from_date,to_date,reason) VALUES(%s,%s,%s,%s)",
+            (session.get('user_id'), from_date, to_date, reason)
+        )
+        conn.commit()
         cur.close()
         return redirect('/dashboard')
     return render_template('apply_leave.html')
-
-# Admin Dashboard
-@app.route('/admin')
-def admin():
-    cur = mysql.connection.cursor()
-    cur.execute("SELECT leaves.id, users.name, from_date, to_date, reason, status FROM leaves JOIN users ON leaves.user_id=users.id")
-    data = cur.fetchall()
-    cur.close()
-    return render_template('admin_dashboard.html', leaves=data)
-
-# Approve / Reject
-@app.route('/update/<int:id>/<status>')
-def update(id,status):
-    cur = mysql.connection.cursor()
-    cur.execute("UPDATE leaves SET status=%s WHERE id=%s",(status,id))
-    mysql.connection.commit()
-    cur.close()
-    return redirect('/admin')
 
 if __name__ == '__main__':
     app.run(debug=True)
