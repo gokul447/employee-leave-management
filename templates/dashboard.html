@@ -1,0 +1,16 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<h2>Dashboard</h2>
+
+<a href="/apply">Apply Leave</a>
+<br><br>
+
+<h3>Your Leaves</h3>
+
+<ul>
+{% for leave in leaves %}
+    <li>{{ leave[2] }} to {{ leave[3] }} - {{ leave[5] }}</li>
+{% endfor %}
+</ul>
+{% endblock %}

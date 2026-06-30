@@ -1,0 +1,12 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<h2>Apply Leave</h2>
+
+<form method="POST">
+    From: <input type="date" name="from_date" required><br><br>
+    To: <input type="date" name="to_date" required><br><br>
+    Reason: <textarea name="reason" required></textarea><br><br>
+    <button type="submit">Apply</button>
+</form>
+{% endblock %}
