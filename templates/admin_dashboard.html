@@ -1,0 +1,34 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<h2>Admin Dashboard</h2>
+
+<table class="table table-bordered">
+<thead>
+<tr>
+    <th>Employee</th>
+    <th>From</th>
+    <th>To</th>
+    <th>Reason</th>
+    <th>Status</th>
+    <th>Action</th>
+</tr>
+</thead>
+<tbody>
+{% for leave in leaves %}
+<tr>
+    <td>{{ leave[1] }}</td>
+    <td>{{ leave[2] }}</td>
+    <td>{{ leave[3] }}</td>
+    <td>{{ leave[4] }}</td>
+    <td>{{ leave[5] }}</td>
+    <td>
+        <a href="/update/{{ leave[0] }}/Approved" class="btn btn-success btn-sm">Approve</a>
+        <a href="/update/{{ leave[0] }}/Rejected" class="btn btn-danger btn-sm">Reject</a>
+    </td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+
+{% endblock %}
